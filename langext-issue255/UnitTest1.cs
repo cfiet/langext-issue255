@@ -100,36 +100,6 @@ namespace langext_issue255
     {
         public static Option<Guid> ToOption(this Guid id) =>
             id == default(Guid) ? Option<Guid>.None : Some(id);
-
-        // ReSharper disable ConvertClosureToMethodGroup
-
-        public static async Task<Either<TError, B>> Select<TError, A, B>(this Task<Either<TError, A>> self,
-            Func<A, B> f)
-            where TError : NewType<TError, string> =>
-            (await self).Match(
-                Right: r => Right<TError, B>(f(r)),
-                Left: l => Left<TError, B>(l));
-
-        public static async Task<Either<TError, C>> SelectMany<TError, A, B, C>(
-            this Task<Either<TError, A>> self,
-            Func<A, Task<Either<TError, B>>> bind,
-            Func<A, B, C> project
-        ) where TError : NewType<TError, string> =>
-            await (await self).MatchAsync(
-                Right: async a => (await bind(a)).Match(
-                    Right: b => Right<TError, C>(project(a, b)),
-                    Left: l => Left<TError, C>(l)),
-                Left: l => Left<TError, C>(l));
-
-        public static async Task<Either<TError, A>> Where<TError, A>(this Task<Either<TError, A>> self, Func<A, bool> f)
-            where TError : NewType<TError, string> =>
-            (await self).Match(
-                Right: r => f(r)
-                    ? r
-                    : Either<TError, A>.Bottom,
-                Left: l => l);
-
-        // ReSharper restore ConvertClosureToMethodGroup
     }
 
     public interface IRepository
