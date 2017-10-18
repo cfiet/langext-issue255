@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Xunit;
 using LanguageExt;
+using LanguageExt.ClassInstances;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Shouldly;
@@ -16,7 +18,9 @@ namespace langext_issue255
         public async Task no_gender_found_returns_not_found()
         {
             var repo = new Mock<IRepository>();
-            repo.Setup(x => x.GetGenderByIdAsync(It.IsAny<Guid>())).ReturnsAsync(() => Option<Gender>.None);
+            repo.Setup(x => x.GetGenderByIdAsync(It.IsAny<Guid>()))
+                .ReturnsAsync(Option<Gender>.None);
+
             var controller = new TestController(repo.Object);
 
             var result = await controller.GetGenderByIdAsync(Guid.NewGuid());
@@ -27,7 +31,10 @@ namespace langext_issue255
         public async Task gender_found_returns_ok()
         {
             var repo = new Mock<IRepository>();
-            repo.Setup(x => x.GetGenderByIdAsync(It.IsAny<Guid>())).ReturnsAsync(new Gender());
+
+            repo.Setup(x => x.GetGenderByIdAsync(It.IsAny<Guid>()))
+                .ReturnsAsync(new Gender());
+
             var controller = new TestController(repo.Object);
 
             var result = await controller.GetGenderByIdAsync(Guid.NewGuid());
@@ -38,7 +45,10 @@ namespace langext_issue255
         public async Task default_guid_returns_not_found()
         {
             var repo = new Mock<IRepository>();
-            repo.Setup(x => x.GetGenderByIdAsync(It.IsAny<Guid>())).ReturnsAsync(() => Option<Gender>.None);
+
+            repo.Setup(x => x.GetGenderByIdAsync(It.IsAny<Guid>()))
+                .ReturnsAsync(Option<Gender>.None);
+
             var controller = new TestController(repo.Object);
 
             var result = await controller.GetGenderByIdAsync(default(Guid));
@@ -49,10 +59,26 @@ namespace langext_issue255
         public async Task repo_exception_returns_internal_server_error()
         {
             var repo = new Mock<IRepository>();
-            repo.Setup(x => x.GetGenderByIdAsync(It.IsAny<Guid>())).ThrowsAsync(new Exception("whoops"));
+
+            repo.Setup(x => x.GetGenderByIdAsync(It.IsAny<Guid>()))
+                .ThrowsAsync(new Exception("whoops"));
+
             var controller = new TestController(repo.Object);
 
             var result = await controller.GetGenderByIdAsync(Guid.NewGuid());
+            result.ShouldBeOfType<ObjectResult>();
+            ((ObjectResult) result).StatusCode.ShouldBe(500);
+        }
+
+        [Fact]
+        public async Task issue_283()
+        {
+            var repo = new Mock<IRepository>();
+            repo.Setup(x => x.GetAllGendersAsync())
+                .ThrowsAsync(new Exception("huzzah"));
+
+            var controller = new TestController(repo.Object);
+            var result = await controller.GetAllGendersAsync();
             result.ShouldBeOfType<ObjectResult>();
             ((ObjectResult) result).StatusCode.ShouldBe(500);
         }
@@ -66,6 +92,14 @@ namespace langext_issue255
         {
             _repository = repository;
         }
+
+        [SuppressMessage("ReSharper", "ConvertClosureToMethodGroup")]
+        public Task<IActionResult> GetAllGendersAsync() =>
+            Try(_repository.GetAllGendersAsync()).ToAsync()
+                .Match(
+                    Succ: gender => Ok(gender),
+                    Fail: e => (IActionResult) StatusCode(500, e)
+                );
 
         [SuppressMessage("ReSharper", "ConvertClosureToMethodGroup")]
         public Task<IActionResult> GetGenderByIdAsync(Guid id) =>
@@ -105,6 +139,7 @@ namespace langext_issue255
     public interface IRepository
     {
         Task<Option<Gender>> GetGenderByIdAsync(Guid id);
+        Task<IEnumerable<Gender>> GetAllGendersAsync();
     }
 
     public class Gender
