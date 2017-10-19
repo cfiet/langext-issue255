@@ -14,7 +14,7 @@ namespace langext_issue255
     public class Issue283Tests
     {
         [Fact]
-        public async Task AsyncMethodShouldNotThrowException()
+        public async Task AsyncMethodShoudResultInFail()
         {
             var result = await Try(async () =>
             {
@@ -30,7 +30,7 @@ namespace langext_issue255
         }
 
         [Fact]
-        public async Task SyncMethodShouldNotThrowException()
+        public async Task SyncMethodReturingTaskShouldResultInFail()
         {
             var result = await Try(() => Task.FromException(new Exception())).ToAsync().Match(
                 Succ: _ => 
